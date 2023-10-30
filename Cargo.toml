@@ -1,0 +1,27 @@
+[package]
+name = "scrapyard"
+authors = [ "Siriusmart" ]
+version = "0.1.0"
+edition = "2021"
+description = "Automatic web scraper and RSS generator library"
+readme = "README.md"
+repository = "https://github.com/siriusmart/scrapyard"
+license = "AGPL-3.0"
+keywords = ["rss", "feed", "scraper", "web scraper", "automatic"]
+categories = ["parsing"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-recursion = "1.0.5"
+async-trait = "0.1.74"
+chrono = "0.4.31"
+dirs = "5.0.1"
+reqwest = "0.11.22"
+rss = "2.0.6"
+serde = { version = "1.0.189", features = [ "derive" ]}
+serde-inline-default = "0.1.1"
+serde_default = "0.1.0"
+serde_json = { version = "1.0.107" }
+subprocess = "0.2.9"
+tokio = { version = "1.33.0", features = [ "fs", "process", "macros" ]}
