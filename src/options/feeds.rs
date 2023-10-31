@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, sync::OnceLock, time::Duration};
+use std::{collections::HashMap, error::Error, sync::Arc, time::Duration};
 
 use async_recursion::async_recursion;
 use chrono::{DateTime, Utc};
@@ -49,12 +49,11 @@ impl Feeds {
                     FetchedMeta::default().save_json(&meta_path).await.unwrap();
                 }
 
-                static FEED: OnceLock<FeedOption> = OnceLock::new();
-                FEED.set(feed).unwrap();
+                let feed: Arc<FeedOption> = Arc::new(feed);
 
                 loop {
+                    let feed = feed.clone();
                     let meta_path = meta_path.clone();
-                    let feed = FEED.get().unwrap();
                     // so panic inside this block wont exit the event loop
                     let _ = tokio::task::spawn(async move {
                         loop {
