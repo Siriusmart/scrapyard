@@ -148,6 +148,8 @@ pub struct PseudoItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pub_date: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<PseudoSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,

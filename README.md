@@ -37,7 +37,7 @@ async fn main() {
 
 By default, config files can be found in `~/.config/scrapyard` (Linux),
 `/Users/[Username]/Library/Application/Support/scrapyard` (Mac) or
-`C:\Users\[Username]\AppData\Roaming`.
+`C:\Users\[Username]\AppData\Roaming\scrapyard` (Windows).
 
 To change the config directory location, specify the path:
 

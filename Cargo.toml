@@ -1,13 +1,13 @@
 [package]
 name = "scrapyard"
 authors = [ "Siriusmart" ]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Automatic web scraper and RSS generator library"
 readme = "README.md"
 repository = "https://github.com/siriusmart/scrapyard"
 license = "AGPL-3.0"
-keywords = ["rss", "feed", "scraper", "web scraper", "automatic"]
+keywords = ["rss", "feed", "scraper", "web", "automatic"]
 categories = ["parsing"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

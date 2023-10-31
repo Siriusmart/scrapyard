@@ -35,7 +35,7 @@
 //!
 //! By default, config files can be found in `~/.config/scrapyard` (Linux),
 //! `/Users/[Username]/Library/Application/Support/scrapyard` (Mac) or
-//! `C:\Users\[Username]\AppData\Roaming`.
+//! `C:\Users\[Username]\AppData\Roaming\scrapyard` (Windows).
 //!
 //! To change the config directory location, specify the path:
 //!
@@ -67,6 +67,7 @@
 //!     "fetch-length": Number, // maximum number of items allowed to be fetched each interval
 //!     "interval": Number, // number of seconds between fetching,
 //!     "idle-limit": Number, // number of seconds without requests to that feed before fetching stops
+//!     "sort": Boolean, // to sort by publish date or not
 //!     "extractor": [String], // all command line args to run the extractor, i.e. ["node", "extractor.js"]
 //!
 //!     "title": String, // displayed feed title
@@ -97,6 +98,7 @@
 //! {
 //!     "url": String, // origin of the info fetched
 //!     "webstr": String, // response from the url
+//!     "preexists": [ PseudoItem ], // don't output these again to avoid duplication
 //!     "lengthLeft": Number // maximum length before the fetch-length quota is met
 //! }
 //! ```

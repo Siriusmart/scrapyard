@@ -9,6 +9,8 @@ pub struct ItemizerArg {
     pub url: String,
     /// String returned from origin
     pub webstr: String,
+    /// Items to ignore when extracting
+    pub preexists: Vec<PseudoItem>,
     /// Items left to scrap
     #[serde(rename = "lengthLeft")]
     pub length_left: u32,

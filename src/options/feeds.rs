@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error::Error, sync::OnceLock, time::Duration};
 
 use async_recursion::async_recursion;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
@@ -118,6 +118,9 @@ pub struct FeedOption {
     #[serde_inline_default(172800)] // 2 days
     #[serde(rename = "idle-limit")]
     pub idle_limit: u64,
+    /// To sort items by publish date or not
+    #[serde_inline_default(true)]
+    pub sort: bool,
     /// Scraper script
     #[serde_inline_default(vec!["/usr/bin/node".to_string(), "/path/to/script.js".to_string()])]
     pub extractor: Vec<String>,
@@ -343,20 +346,30 @@ impl FeedOption {
         let mut items = Vec::new();
         let fetch_length = std::cmp::min(
             self.max_length,
-            ((chrono::Utc::now().timestamp() as u64 - meta.last_fetch + 1) / self.interval
-                * self.fetch_length as u64) as usize,
+            std::cmp::max(
+                ((chrono::Utc::now().timestamp() as u64 - meta.last_fetch + 1) / self.interval
+                    * self.fetch_length as u64) as usize,
+                self.fetch_length,
+            ),
         );
 
         for i in 0..MASTER.get().unwrap().max_retries {
-            let res = tokio::select! {
-                res = self.fetch_items_recurse(&mut items, &json.0, &self.origin, fetch_length) => {
-                    res
-                },
-                _ = tokio::time::sleep(Duration::from_secs(MASTER.get().unwrap().request_timeout)) => {
-                    return Err(crate::Error::Timedout.into())
-                }
-            };
-            match res {
+            match self
+                .fetch_items_recurse(
+                    &mut items,
+                    json.0
+                        .clone()
+                        .into_iter()
+                        .map(|item| PseudoItem {
+                            content: None,
+                            ..item
+                        })
+                        .collect(),
+                    &self.origin,
+                    fetch_length as usize,
+                )
+                .await
+            {
                 Ok(()) => break,
                 Err(e) => println!("Error fetching {} on retry {}: {e}", self.origin, i + 1),
             }
@@ -364,8 +377,25 @@ impl FeedOption {
             items.clear()
         }
 
-        if items.is_empty() {
-            return Ok(items);
+        items.iter_mut().for_each(|item| {
+            if item.timestamp.is_some() {
+                return;
+            }
+
+            if let Some(pub_date) = &item.pub_date {
+                item.timestamp = Some(match DateTime::parse_from_rfc2822(pub_date) {
+                    Ok(date) => date.timestamp() as u64,
+                    Err(_) => return,
+                })
+            }
+        });
+        items.append(&mut json.0);
+        if self.sort {
+            items.sort_by(|item, other| other.timestamp.cmp(&item.timestamp));
+        }
+
+        if items.len() > self.max_length {
+            items.drain(self.max_length..);
         }
 
         json.0 = items.clone();
@@ -418,7 +448,19 @@ impl FeedOption {
 
         for i in 0..MASTER.get().unwrap().max_retries {
             match self
-                .fetch_items_recurse(&mut items, &json.0, &self.origin, fetch_length as usize)
+                .fetch_items_recurse(
+                    &mut items,
+                    json.0
+                        .clone()
+                        .into_iter()
+                        .map(|item| PseudoItem {
+                            content: None,
+                            ..item
+                        })
+                        .collect(),
+                    &self.origin,
+                    fetch_length as usize,
+                )
                 .await
             {
                 Ok(()) => break,
@@ -428,8 +470,21 @@ impl FeedOption {
             items.clear()
         }
 
-        if items.is_empty() {
-            return Err(crate::Error::FetchFailed.into());
+        items.iter_mut().for_each(|item| {
+            if item.timestamp.is_some() {
+                return;
+            }
+
+            if let Some(pub_date) = &item.pub_date {
+                item.timestamp = Some(match DateTime::parse_from_rfc2822(pub_date) {
+                    Ok(date) => date.timestamp() as u64,
+                    Err(_) => return,
+                })
+            }
+        });
+        items.append(&mut json.0);
+        if self.sort {
+            items.sort_by(|item, other| other.timestamp.cmp(&item.timestamp));
         }
 
         if items.len() > self.max_length {
@@ -454,7 +509,7 @@ impl FeedOption {
     async fn fetch_items_recurse(
         &self,
         items: &mut Vec<PseudoItem>,
-        original: &Vec<PseudoItem>,
+        original: Vec<PseudoItem>,
         url: &str,
         fetch_length: usize,
     ) -> Result<(), Box<dyn Error>> {
@@ -467,9 +522,13 @@ impl FeedOption {
             }
         };
 
+        let mut preexists = original.clone();
+        preexists.append(&mut items.clone());
+
         let arg = ItemizerArg {
             url: url.to_string(),
             webstr: text,
+            preexists,
             length_left: fetch_length.checked_sub(items.len()).unwrap_or_default() as u32,
         };
 
@@ -538,14 +597,6 @@ impl FeedOption {
 
         if items.len() >= self.max_length {
             return Ok(());
-        }
-
-        if !items.is_empty() {
-            let last = items.last().unwrap();
-            if let Some(skip) = original.iter().position(|item| item == last) {
-                items.extend(original.iter().skip(skip + 1).map(PseudoItem::clone));
-                return Ok(());
-            }
         }
 
         if let Some(continuation) = res.continuation {
