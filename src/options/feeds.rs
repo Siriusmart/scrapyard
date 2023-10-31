@@ -175,6 +175,8 @@ impl FeedOption {
             return PseudoChannel::load_string(&rss_path).await;
         }
 
+        meta.requested();
+        meta.save_json(&meta_path).await?;
         PseudoChannel::load_string(&rss_path).await
     }
 
@@ -227,6 +229,8 @@ impl FeedOption {
             return PseudoChannel::load_string(&json_path).await;
         }
 
+        meta.requested();
+        meta.save_json(&meta_path).await?;
         PseudoChannel::load_string(&json_path).await
     }
 
