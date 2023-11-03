@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
 use subprocess::{Exec, Redirection};
-use tokio::{fs, task::spawn_blocking};
+use tokio::{fs, io::AsyncWriteExt, task::spawn_blocking};
 
 use crate::{
     bindings::{ItemizerArg, ItemizerRes, PseudoChannel, PseudoItem},
@@ -123,6 +123,8 @@ pub struct FeedOption {
     /// Scraper script
     #[serde_inline_default(vec!["/usr/bin/node".to_string(), "/path/to/script.js".to_string()])]
     pub extractor: Vec<String>,
+    #[serde_inline_default(true)]
+    pub fetch: bool,
 
     /// Channel details
     #[serde(default)]
@@ -516,24 +518,46 @@ impl FeedOption {
         url: &str,
         fetch_length: usize,
     ) -> Result<(), Box<dyn Error>> {
-        let text = tokio::select! {
-            res = reqwest::get(url).await?.text() => {
-                res?
-            },
-            _ = tokio::time::sleep(Duration::from_secs(MASTER.get().unwrap().request_timeout)) => {
-                return Err(crate::Error::Timedout.into());
-            }
-        };
-
         let mut preexists = original.clone();
         preexists.append(&mut items.clone());
 
         let arg = ItemizerArg {
             url: url.to_string(),
-            webstr: text,
+            webstr: if self.fetch {
+                Some(tokio::select! {
+                    res = reqwest::get(url).await?.text() => {
+                        res?
+                    },
+                    _ = tokio::time::sleep(Duration::from_secs(MASTER.get().unwrap().request_timeout)) => {
+                        return Err(crate::Error::Timedout.into());
+                    }
+                })
+            } else {
+                None
+            },
             preexists,
+            feed: self.clone(),
             length_left: fetch_length.checked_sub(items.len()).unwrap_or_default() as u32,
         };
+        let arg_path = MASTER
+            .get()
+            .unwrap()
+            .store
+            .join(&self.label)
+            .join("args.json");
+
+        {
+            let mut arg_file = fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&arg_path)
+                .await?;
+
+            arg_file
+                .write_all(serde_json::to_vec(&arg)?.as_slice())
+                .await?;
+        }
 
         // redirects stdout to a file to avoid the stdio buffer limit
         let label = self.label.clone();
@@ -555,7 +579,7 @@ impl FeedOption {
                 .unwrap();
             let mut popen = Exec::cmd(extractor.first().unwrap())
                 .args(&extractor[1..])
-                .arg(serde_json::to_string(&arg)?)
+                .arg(arg_path.to_str().unwrap())
                 .stdout(Redirection::File(stdout_file))
                 .stderr(Redirection::File(stderr_file))
                 .popen()

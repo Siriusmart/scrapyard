@@ -73,6 +73,7 @@
 //!     "title": String, // displayed feed title
 //!     "link": String, // displayed feed source url
 //!     "description": String, // displayed feed description
+//!     "fetch": Boolean // should the crate fetch the content, or let the script do it
 //! }
 //! ```
 //!
@@ -89,17 +90,21 @@
 //!
 //! ### Extractor scripts
 //!
-//! The extractor scripts must accept 1 command line argument (in JSON) and prints out 1 JSON
+//! The extractor scripts must accept 1 command line argument and prints out 1 JSON
 //! response to stdout, normal `console.log()` in JS will do. You get the idea.
+//!
+//! The first argument would specify a file path, within that file contains the arguments for the scraper.
 //!
 //! Command line input:
 //!
 //! ```json
 //! {
 //!     "url": String, // origin of the info fetched
-//!     "webstr": String, // response from the url
+//!     "webstr": String?, // response from the url, only if feed.fetch = true
 //!     "preexists": [ PseudoItem ], // don't output these again to avoid duplication
 //!     "lengthLeft": Number // maximum length before the fetch-length quota is met
+//!     
+//!     // plus everything from feed.json
 //! }
 //! ```
 //!
